@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% load static %}
+{% block head_title %}
+Profile
+{% endblock head_title %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'profile.css' %}">
+<link href="https://fonts.googleapis.com/css2?family=MuseoModerno:ital,wght@0,100..900;1,100..900&display=swap"
+    rel="stylesheet">
+{% endblock extra_css %}
+
+{% block content %}
+
+<div class="container profile-box">
+    <div class="top-cover">
+        <div class="covwe-inn">
+            <div class="profile-section">
+                {% if username %}
+                {% if pfp_url %}
+                <div class="pfp">
+                    <img src="{{ pfp_url }}" alt="Profile Picture">
+                    <!-- Only show the edit button if the logged-in user is viewing their own profile -->
+                    {% if logged_in_username == username %}
+                    <div class="edit-button" data-bs-toggle="modal" data-bs-target="#editProfilePictureModal">
+                        <img src="/static/images/camera2.png" style="width: 50px; height: 50px;">
+                    </div>
+                    {% endif %}
+                </div>
+                {% else %}
+                <p>No profile picture available.</p>
+                {% endif %}
+                <div class="username">{{ username }}</div>
+                {% endif %}
+            </div> <!-- profile-section -->
+        </div>
+    </div>
+
+    <!-- Modal structure for editing profile picture -->
+    <div class="modal fade" id="editProfilePictureModal" tabindex="-1" aria-labelledby="editProfilePictureModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editProfilePictureModalLabel">Upload</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form action="{% url 'profile' %}" method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="newProfilePicture" class="form-label">Select new profile picture:</label>
+                            <input type="file" class="form-control" id="newProfilePicture" name="newProfilePicture"
+                                required>
+                        </div>
+                        <button type="submit" class="btn btn-auth">Upload</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <ul class="nav nav-tabs custom-nav-tabs" id="myTab" role="tablist" style="margin-left:5px; margin-top:10px;">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link tab-item active" id="reviews-tab" data-bs-toggle="tab" data-bs-target="#reviews"
+                type="button" role="tab" aria-controls="reviews" aria-selected="false">Uploads</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link tab-item " id="home-tab" data-bs-toggle="tab" data-bs-target="#home" type="button"
+                role="tab" aria-controls="home" aria-selected="true">Favorites</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link tab-item" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile"
+                type="button" role="tab" aria-controls="profile" aria-selected="false">Share</button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="myTabContent">
+        <div class="tab-pane fade " id="home" role="tabpanel" aria-labelledby="home-tab">
+            <div class="bodyclass">
+                <div class="grid">
+                    {% if favorite_images %}
+                    {% for image in favorite_images %}
+                    <div class="image-container">
+                        <img src="{{ image.url }}" alt="Favorite Image">
+                        <div class="download-button">
+                            <a href="#" onclick="fetchAndDownload('{{ image.url }}'); return false;">
+                                <img src="{% static 'images/download.png' %}" alt="Download" class="icon">
+                            </a>
+                        </div>
+                        <!-- Only show the delete button if the logged-in user is viewing their own profile -->
+                        {% if logged_in_username == username %}
+                        <div class="delete-button">
+                            <img src="{% static 'images/delete.png' %}" alt="Delete" class="icon"
+                                onclick="deleteImage('{{ image.key }}', this)">
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p>No favorites found.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab">
+            <!-- Only show the upload form if the logged-in user is viewing their own profile -->
+            {% if logged_in_username == username %}
+            <form method="POST" enctype="multipart/form-data" action="{% url 'upload_image' %}">
+                {% csrf_token %}
+                <label style="margin-top: 15px; margin-bottom: 15px;" for="image">Choose an image:</label>
+                <input type="file" id="image" name="image" accept="image/*" required><br><br>
+                <label for="description">Enter Keywords(comma separated):</label>
+                <input type="text" id="description" name="description" required><br><br>
+                <button class="btn btn-auth" type="submit">Upload</button>
+            </form>
+            {% else %}
+            <p> Not Authorized </p>
+            {% endif %}
+        </div>
+
+        <div class="tab-pane fade active show" id="reviews" role="tabpanel" aria-labelledby="reviews-tab">
+            <div class="bodyclass">
+                <div class="grid">
+                    {% if uploaded_images %}
+                    {% for image in uploaded_images %}
+                    <div class="image-container">
+                        <img src="{{ image.url }}" alt="Uploaded Image">
+                        <div class="download-button2">
+                            <a href="#" onclick="fetchAndDownload('{{ image.url }}'); return false;">
+                                <img src="{% static 'images/download.png' %}" alt="Download" class="icon">
+                            </a>
+                        </div>
+                        <!-- Only show the delete button if the logged-in user is viewing their own profile -->
+                        <!-- {% if logged_in_username == username %}
+                      <div class="delete-button">
+                        <img src="{% static 'images/delete.png' %}" alt="Delete" class="icon" onclick="deleteImage('{{ image.key }}', this)">
+                      </div>
+                    {% endif %} -->
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p>No uploaded images found. Contribute some images in the 'Share' tab and they will appear here!
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endblock content %}
+
+        {% block extra_js %}
+        <script>
+            function openTab(evt, tabName) {
+                // Declare all variables
+                var i, tabcontent, tablinks;
+
+                // Get all elements with class="tabcontent" and hide them
+                tabcontent = document.getElementsByClassName("tabcontent");
+                for (i = 0; i < tabcontent.length; i++) {
+                    tabcontent[i].style.display = "none";
+                    tabcontent[i].classList.remove("active");
+                }
+
+                // Get all elements with class="tablinks" and remove the class "active"
+                tablinks = document.getElementsByClassName("tablinks");
+                for (i = 0; i < tablinks.length; i++) {
+                    tablinks[i].className = tablinks[i].className.replace(" active", "");
+                }
+
+                // Show the current tab, and add an "active" class to the button that opened the tab
+                document.getElementById(tabName).style.display = "block";
+                evt.currentTarget.className += " active";
+            }
+
+            // Display the default active tab content
+            document.addEventListener("DOMContentLoaded", function () {
+                var defaultTab = document.querySelector(".tabcontent.active");
+                if (defaultTab) {
+                    defaultTab.style.display = "block";
+                }
+            });
+        </script>
+        <script>
+            function fetchAndDownload(imageUrl) {
+                fetch(imageUrl, {
+                    method: 'GET',
+                    headers: { 'Cache-Control': 'no-cache' }
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            return response.blob();
+                        } else {
+                            throw new Error('Network response was not ok.');
+                        }
+                    })
+                    .then(blob => {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = imageUrl.split('/').pop(); // Extract the filename from the URL
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    })
+                    .catch(error => {
+                        console.error('There was a problem with the fetch operation:', error);
+                    });
+            }
+            function deleteImage(imageKey, imageElement) {
+                fetch("{% url 'delete_favorite_image' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: new URLSearchParams({
+                        'image_key': imageKey
+                    })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Remove the specific image container associated with the deleted image
+                            imageElement.closest('.image-container').remove();
+                        } else {
+                            alert('Failed to delete image: ' + (data.error || 'Unknown error'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred while deleting the image.');
+                    });
+            }
+        </script>
+
+        {% endblock extra_js %}

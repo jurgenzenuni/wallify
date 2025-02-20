@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% load static %}
+
+{% block head_title %}
+AI Image Generation
+{% endblock head_title %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'ai.css' %}">
+<link href="https://fonts.googleapis.com/css2?family=MuseoModerno:wght@500&display=swap" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+{% if not username %}
+<script>
+    // Redirect to homepage and show login modal
+    window.location.href = "{% url 'homepage' %}?show_login=true";
+</script>
+{% else %}
+<!-- Loading GIF -->
+<div id="loading" class="loading-overlay">
+    <img src="{% static 'images/loading-clr.gif' %}" alt="Loading" class="loading-gif">
+</div>
+
+<div class="ai-container">
+    <!-- <h1 class="ai-title">AI Image Generation</h1> -->
+    <p class="ai-description">
+        Create unique images using artificial intelligence. Simply describe what you want to see,
+        and our AI will bring your vision to life.
+    </p>
+
+    <form id="generateForm" class="prompt-form" method="post" action="{% url 'generate_image' %}">
+        {% csrf_token %}
+        <input type="hidden" name="aspect_ratio" id="aspectRatio" value="9:16">
+        <textarea name="prompt" class="prompt-input" placeholder="Describe the image you want to create..."
+            required></textarea>
+        <div class="button-container">
+            <button type="submit" class="generate-btn" {% if not username %}disabled{% endif %}>
+                Generate Image
+                <span class="loading-dots"></span>
+            </button>
+            {% if not username %}
+            <p class="text-muted mt-2">Please log in to generate images</p>
+            {% endif %}
+            <div class="aspect-ratio-toggles">
+                <div class="ratio-toggle active" data-ratio="9:16">
+                    <img src="{% static 'images/portrait.png' %}" alt="Portrait" title="Portrait (9:16)">
+                </div>
+                <div class="ratio-toggle" data-ratio="16:9">
+                    <img src="{% static 'images/landscape.png' %}" alt="Landscape" title="Landscape (16:9)">
+                </div>
+            </div>
+        </div>
+    </form>
+
+    {% if image_url %}
+    <div class="image-container">
+        <img src="{{ image_url }}" alt="Generated Image" class="generated-image">
+        <button id="downloadButton" class="download-button">Download</button>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    // Move all DOM element selections to the top
+    const textarea = document.querySelector('.prompt-input');
+    const ratioToggles = document.querySelectorAll('.ratio-toggle');
+    const aspectRatioInput = document.getElementById('aspectRatio');
+    const generateForm = document.getElementById('generateForm');
+    const loadingOverlay = document.getElementById('loading');
+
+    // Aspect ratio toggle functionality
+    function initializeAspectRatioToggles() {
+        ratioToggles.forEach(toggle => {
+            toggle.addEventListener('click', function () {
+                // First log to verify the click is detected
+                console.log('Toggle clicked:', this.dataset.ratio);
+
+                // Remove active class from all toggles
+                ratioToggles.forEach(t => t.classList.remove('active'));
+
+                // Add active class to clicked toggle
+                this.classList.add('active');
+
+                // Update hidden input value
+                aspectRatioInput.value = this.dataset.ratio;
+
+                // Log the new value to verify it changed
+                console.log('Input value updated to:', aspectRatioInput.value);
+            });
+        });
+    }
+
+    // Initialize toggles when DOM is loaded
+    document.addEventListener('DOMContentLoaded', function () {
+        initializeAspectRatioToggles();
+
+        // Log initial state
+        console.log('Initial aspect ratio:', aspectRatioInput.value);
+    });
+
+    // Textarea auto-resize
+    textarea.addEventListener('input', function () {
+        this.style.height = 'auto';
+        this.style.height = this.scrollHeight + 'px';
+    });
+
+    // Form submission
+    const submitForm = async function (e) {
+        e.preventDefault();
+
+        // Get all required elements at the start
+        const form = this;
+        const button = form.querySelector('.generate-btn');
+        const dots = form.querySelector('.loading-dots');
+
+        if (!button || !dots) {
+            console.error('Required elements not found:', { button: !!button, dots: !!dots });
+            alert('An error occurred. Please refresh the page and try again.');
+            return;
+        }
+
+        try {
+            // Show loading state
+            button.disabled = true;
+            // Keep the loading-dots span by updating only the text node
+            button.firstChild.textContent = 'Generating';
+            dots.style.display = 'inline';
+            loadingOverlay.style.display = 'flex';
+
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to generate image');
+            }
+
+            if (data.image_url) {
+                let container = document.querySelector('.image-container');
+                if (!container) {
+                    container = document.createElement('div');
+                    container.className = 'image-container';
+                    document.querySelector('.ai-container').appendChild(container);
+                }
+
+                container.innerHTML = `
+                    <img src="${data.image_url}" alt="Generated Image" class="generated-image">
+                    <button id="downloadButton" class="download-button">Download</button>
+                `;
+
+                // Add download functionality
+                document.getElementById('downloadButton').addEventListener('click', function () {
+                    fetch(data.image_url)
+                        .then(response => response.blob())
+                        .then(blob => {
+                            const link = document.createElement('a');
+                            link.href = URL.createObjectURL(blob);
+                            link.download = data.image_url.split('/').pop();
+                            link.click();
+                            URL.revokeObjectURL(link.href);
+                        });
+                });
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert(error.message || 'An error occurred while generating the image');
+        } finally {
+            // Reset form state
+            if (button && dots) {
+                button.disabled = false;
+                button.firstChild.textContent = 'Generate Image';
+                dots.style.display = 'none';
+            }
+            loadingOverlay.style.display = 'none';
+        }
+    };
+
+    // Add form submission listener
+    generateForm.addEventListener('submit', submitForm);
+</script>
+{% endblock %}
