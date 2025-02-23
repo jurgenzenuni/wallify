@@ -19,6 +19,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 
 
+
 def homepage(request):
     username = request.session.get('username')
     profile_picture_url = '/static/images/dpfp.png'
@@ -211,7 +212,7 @@ def profile(request, username=None):
 
     # Redirect to login if no username is in session
     if not logged_in_username:
-        return redirect('login')
+        return redirect('signin')
 
     # If no username is provided, use the session username for the logged-in user's profile
     if username is None:
